@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  password    String
+  name        String
+  displayName String
+  role        String   @default("STAFF")
+  doctorId    String?  @unique
+  doctor      Doctor?  @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([role])
+}
+
+model Doctor {
+  id           String              @id @default(cuid())
+  name         String
+  displayName  String
+  sortOrder    Int                 @default(0)
+  colorToken   String              @default("sky")
+  user         User?
+  surgeryTypes Surgery[]
+  schedules    DailySchedule[]
+  exceptions   ScheduleException[]
+  bookings     Booking[]
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([isActive])
+}
+
+model Surgery {
+  id                   String    @id @default(cuid())
+  name                 String    @unique
+  displayName          String
+  /// 実際の執刀時間（分）
+  standardDuration     Int
+  /// 前後の入れ替え・器材準備を含めて確保する予約枠（分）
+  requiredSlotDuration Int
+  sortOrder            Int       @default(0)
+  doctors              Doctor[]
+  bookings             Booking[]
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+model OperatingRoom {
+  id         String              @id @default(cuid())
+  name       String              @unique
+  number     Int                 @unique
+  schedules  DailySchedule[]
+  exceptions ScheduleException[]
+  bookings   Booking[]
+  isActive   Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([isActive])
+}
+
+/// 定例手術枠: 「医師 × 手術室 × 曜日 × 時間帯」の4次元で定義する。
+/// weekOfMonth が null なら毎週、2 なら第2週のみ（第2金曜の追加枠などを表現）。
+model DailySchedule {
+  id              String        @id @default(cuid())
+  doctorId        String
+  doctor          Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  operatingRoomId String
+  operatingRoom   OperatingRoom @relation(fields: [operatingRoomId], references: [id], onDelete: Cascade)
+  dayOfWeek       Int
+  weekOfMonth     Int?
+  startTime       String
+  endTime         String
+  label           String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([dayOfWeek])
+  @@index([doctorId])
+  @@index([operatingRoomId])
+}
+
+/// 特定日の例外。type="ADD" で臨時枠を追加、type="BLOCK" で枠を閉じる。
+/// doctorId / operatingRoomId が null の BLOCK はその日全体の休診を表す。
+model ScheduleException {
+  id              String         @id @default(cuid())
+  date            DateTime
+  type            String
+  doctorId        String?
+  doctor          Doctor?        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  operatingRoomId String?
+  operatingRoom   OperatingRoom? @relation(fields: [operatingRoomId], references: [id], onDelete: Cascade)
+  startTime       String?
+  endTime         String?
+  reason          String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([date])
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  patientId       String
+  patientName     String
+  patientBirth    DateTime
+  surgeryId       String
+  surgery         Surgery       @relation(fields: [surgeryId], references: [id])
+  doctorId        String
+  doctor          Doctor        @relation(fields: [doctorId], references: [id])
+  operatingRoomId String
+  operatingRoom   OperatingRoom @relation(fields: [operatingRoomId], references: [id])
+  date            DateTime
+  startTime       String
+  endTime         String
+  status          String        @default("CONFIRMED")
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([date])
+  @@index([doctorId])
+  @@index([operatingRoomId])
+  @@index([patientId])
+  @@index([status])
+}
+
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}

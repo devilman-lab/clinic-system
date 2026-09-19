@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-50: #eef6f7;
+  --color-brand-100: #d4e8ec;
+  --color-brand-200: #a9d2d9;
+  --color-brand-300: #74b4c0;
+  --color-brand-400: #4593a3;
+  --color-brand-500: #2d7688;
+  --color-brand-600: #235f6f;
+  --color-brand-700: #1d4d5a;
+  --color-brand-800: #1a3f4a;
+  --color-brand-900: #17353e;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-800);
+  -webkit-font-smoothing: antialiased;
+  /* iPad で誤ってページごと引っ張られるのを防ぐ */
+  overscroll-behavior-y: none;
+}
+
+/* iPad のタッチ操作前提: 押せるものは最低 44px を確保する */
+@media (pointer: coarse) {
+  button,
+  a[role='button'],
+  [data-touch-target] {
+    min-height: 44px;
+  }
+}
+
+/* iOS Safari が入力フォーカス時に画面をズームしないよう 16px を下回らせない */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* 予約カードが密に並ぶカレンダー用の細いスクロールバー */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-slate-300) transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--color-slate-300);
+  border-radius: 9999px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
