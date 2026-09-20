@@ -28,14 +28,31 @@ export async function loginAction(
     return { error: parsed.error.issues[0]?.message ?? '入力内容を確認してください。' };
   }
 
-  const user = await authenticate(parsed.data.username, parsed.data.password);
+  let user: Awaited<ReturnType<typeof authenticate>>;
+  try {
+    user = await authenticate(parsed.data.username, parsed.data.password);
+  } catch (error) {
+    // 接続文字列の誤り・テーブル未作成はデプロイ直後に起きやすいので、原因を画面で示す
+    console.error('[login] database error', error);
+    return {
+      error:
+        'データベースに接続できないか、テーブルが作成されていません。DATABASE_URL の設定と、npm run db:push / db:seed の実行を確認してください（/api/health で状態を確認できます）。',
+    };
+  }
 
   if (!user) {
     // ユーザー名とパスワードのどちらが誤りかは明かさない
     return { error: 'ユーザーIDまたはパスワードが正しくありません。' };
   }
 
-  await setSessionCookie(user);
+  try {
+    await setSessionCookie(user);
+  } catch (error) {
+    console.error('[login] session error', error);
+    return {
+      error: 'セッションを発行できません。環境変数 SESSION_SECRET が設定されているか確認してください。',
+    };
+  }
 
   // オープンリダイレクト対策: 自サイト内の相対パスだけを許可する
   const next = parsed.data.next;

@@ -274,7 +274,7 @@ npx playwright install chromium webkit
 | --- | --- | --- |
 | `DATABASE_URL` | PostgreSQL 接続文字列 | `postgresql://...?sslmode=require` |
 | `SESSION_SECRET` | セッション Cookie の署名鍵 | 32 文字以上のランダム文字列 |
-| `TZ` | サーバーの時刻帯（日付判定に使用） | `Asia/Tokyo` |
+| `TZ` | 任意。サーバーの時刻帯。未設定なら起動時に `Asia/Tokyo` を既定にする | `Asia/Tokyo` |
 
 `SESSION_SECRET` は必ず環境変数から読み込み、コードには含めていません。
 本番では十分な長さのランダム値を設定してください（例：`openssl rand -base64 32`）。
@@ -330,10 +330,13 @@ Project → **Settings** → **Environment Variables** に以下を追加（Prod
 | 変数名 | 値 |
 | --- | --- |
 | `SESSION_SECRET` | `openssl rand -base64 32` などで作った 32 文字以上のランダム文字列 |
-| `TZ` | `Asia/Tokyo` |
 
-`TZ` は必須です。「本日」「第N週」「曜日」の判定はサーバーのローカル時刻で行うため、
-Vercel 既定の UTC のままだと、日本時間の朝 9 時まで前日の予定が表示されます。
+時刻帯はアプリが起動時に `Asia/Tokyo` を既定にするため（`src/instrumentation.ts`）、設定不要です。
+`/api/health` の `serverNow` が日本時間になっていることで確認できます。
+
+**Neon 連携が作る変数名を確認してください。** Storage → Neon → 対象プロジェクトの設定にある
+「Custom Environment Variable Prefix」が `DATABASE` なら `DATABASE_URL` が作られます。
+誤って `DATABASE_URL` と入れると `DATABASE_URL_URL` になり、アプリからは空に見えます。
 
 ### 4. スキーマとデモデータを本番 DB に入れる
 
@@ -367,8 +370,9 @@ Vercel 既定の UTC のままだと、日本時間の朝 9 時まで前日の�
 
 | 症状 | 原因と対処 |
 | --- | --- |
-| ダッシュボードが「昨日」を表示する | `TZ=Asia/Tokyo` が未設定。追加して Redeploy |
-| 予約しても再読み込みで消える | `DATABASE_URL` が SQLite のまま。Neon の値になっているか確認 |
+| ログインで「DATABASE_URL resolved to an empty string」 | 変数名の不一致か、環境変数追加後に再デプロイしていない。Environment Variables で `DATABASE_URL` の値を確認し、Redeploy |
+| ダッシュボードが「昨日」を表示する | `/api/health` の `serverNow` を確認。ずれていれば環境変数 `TZ=Asia/Tokyo` を明示して Redeploy |
+| 予約しても再読み込みで消える | `DATABASE_URL` が Neon の値になっているか確認 |
 | ビルドで `Prisma Client` の型エラー | `postinstall` の `prisma generate` が走っていない。Vercel の Install Command が `npm install` になっているか確認 |
 | `db:push` が pgbouncer のエラーで止まる | プール接続を使っている。`DATABASE_URL_UNPOOLED` の値を使う |
 | ログイン後すぐログイン画面に戻る | `SESSION_SECRET` 未設定。追加して Redeploy |

@@ -9,7 +9,7 @@ import { SESSION_COOKIE } from './lib/session-cookie';
  * つまりこの層は UX のためのものであって、認可の拠り所ではない。
  */
 
-const PUBLIC_PATHS = ['/login', '/schedule'];
+const PUBLIC_PATHS = ['/login', '/schedule', '/api/health'];
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
