@@ -201,7 +201,7 @@
 | UI | React 19 / Tailwind CSS v4 |
 | サーバー処理 | Server Components / Server Actions |
 | ORM | Prisma 5 |
-| DB | SQLite（ローカル）／PostgreSQL（Vercel 想定） |
+| DB | PostgreSQL（Neon / Vercel Postgres 等） |
 | バリデーション | zod |
 | 認証 | HMAC-SHA256 署名付きセッション Cookie（httpOnly） |
 
@@ -229,10 +229,12 @@
 
 ## 9. ローカル起動方法
 
+PostgreSQL の接続文字列が必要です（Neon の無料枠で十分です。Vercel 連携で作った DB をそのまま使えます）。
+
 ```bash
 npm install          # postinstall で prisma generate が走ります
-cp .env.example .env # 環境変数を用意（下記参照）
-npm run db:push      # スキーマを SQLite に反映
+cp .env.example .env # DATABASE_URL を実際の接続文字列に書き換える
+npm run db:push      # スキーマを DB に反映
 npm run db:seed      # デモデータを投入
 npm run dev          # http://localhost:3000
 ```
@@ -270,8 +272,9 @@ npx playwright install chromium webkit
 
 | 変数名 | 用途 | 例 |
 | --- | --- | --- |
-| `DATABASE_URL` | 接続先 | `file:./dev.db`（SQLite の相対パスは `prisma/` 基準） |
+| `DATABASE_URL` | PostgreSQL 接続文字列 | `postgresql://...?sslmode=require` |
 | `SESSION_SECRET` | セッション Cookie の署名鍵 | 32 文字以上のランダム文字列 |
+| `TZ` | サーバーの時刻帯（日付判定に使用） | `Asia/Tokyo` |
 
 `SESSION_SECRET` は必ず環境変数から読み込み、コードには含めていません。
 本番では十分な長さのランダム値を設定してください（例：`openssl rand -base64 32`）。
@@ -301,35 +304,79 @@ git push -u origin main
 
 ## 12. Vercel へのデプロイ
 
-### 重要：SQLite のままではデプロイ先で予約が保存されません
+データベースは PostgreSQL を使います（Vercel のファイルシステムは実行ごとに破棄されるため、
+SQLite では予約が保存されません）。ここでは Vercel Marketplace の **Neon** 連携を使う手順を示します。
+追加のアカウント登録なしで、接続文字列が環境変数に自動設定されます。
 
-Vercel のファイルシステムは読み取り専用かつ実行ごとに破棄されるため、
-SQLite のままデプロイすると予約の登録結果が保持されません。
-**共有できるデモとして公開する場合は PostgreSQL に切り替えてください。**
+### 1. Vercel にプロジェクトを作る
 
-### 手順
+1. https://vercel.com/new を開き、GitHub のリポジトリを **Import**
+2. Framework Preset は自動で **Next.js** になる。Build Command / Output は変更不要
+   （`npm run build` = `prisma generate && next build` が使われる）
+3. **まだ Deploy を押さない**。先に環境変数を設定する
 
-1. Vercel Postgres / Neon / Supabase などで PostgreSQL を用意する
-2. `prisma/schema.prisma` の datasource を変更する
+### 2. Neon（PostgreSQL）を接続する
 
-   ```prisma
-   datasource db {
-     provider = "postgresql"
-     url      = env("DATABASE_URL")
-   }
-   ```
+1. 同じ画面の左メニュー、または後で Project → **Storage** タブ → **Create Database**
+2. **Neon** を選び、リージョンは **Asia Pacific (Tokyo)** を選択して作成
+3. 作成後「Connect Project」でこのプロジェクトに接続する。
+   これで `DATABASE_URL`（プール接続）と `DATABASE_URL_UNPOOLED`（直接接続）が
+   環境変数に自動追加される
 
-3. Vercel の環境変数に `DATABASE_URL` と `SESSION_SECRET` を設定する
-4. ローカルから本番 DB に対してスキーマとデモデータを流し込む
+### 3. 残りの環境変数を設定する
+
+Project → **Settings** → **Environment Variables** に以下を追加（Production / Preview 両方）。
+
+| 変数名 | 値 |
+| --- | --- |
+| `SESSION_SECRET` | `openssl rand -base64 32` などで作った 32 文字以上のランダム文字列 |
+| `TZ` | `Asia/Tokyo` |
+
+`TZ` は必須です。「本日」「第N週」「曜日」の判定はサーバーのローカル時刻で行うため、
+Vercel 既定の UTC のままだと、日本時間の朝 9 時まで前日の予定が表示されます。
+
+### 4. スキーマとデモデータを本番 DB に入れる
+
+ローカルの PC から本番 DB に対して実行します（`db:push` / `db:seed` は Vercel 上では動かしません）。
+
+1. Vercel の Storage → Neon → **.env.local** タブから `DATABASE_URL_UNPOOLED` の値をコピー
+2. ローカルの `.env` の `DATABASE_URL` をその値に置き換える（`TZ="Asia/Tokyo"` も残す）
+3. 実行
 
    ```bash
-   DATABASE_URL="<本番の接続文字列>" npm run db:push
-   DATABASE_URL="<本番の接続文字列>" npm run db:seed
+   npm run db:push
+   npm run db:seed
    ```
 
-5. GitHub リポジトリを Vercel に接続してデプロイ
+   `db:seed` は実行した PC の「今日」を基準に前後 4 週間分の予約を作ります。
+   デモの直前に再実行すると、常に「今週」に予約が入った状態にできます。
 
-ビルドコマンドは `npm run build`（`prisma generate && next build`）です。
+### 5. デプロイ
+
+1. Vercel の画面に戻り **Deploy**（すでに作成済みなら Deployments → **Redeploy**）
+2. 発行された URL を開き、`admin` / `admin123` でサインイン
+3. ダッシュボードに件数が出ていれば完了
+
+### 6. 動作確認のポイント
+
+- 空き枠検索 → 予約 → 同条件で再検索して、その枠が消えること
+- 別のブラウザ／iPad で開いて、さきほどの予約がカレンダーに出ること（＝DB に保存されている）
+- `/schedule` を未ログインで開き、患者名が出ないこと
+
+### つまずきやすい点
+
+| 症状 | 原因と対処 |
+| --- | --- |
+| ダッシュボードが「昨日」を表示する | `TZ=Asia/Tokyo` が未設定。追加して Redeploy |
+| 予約しても再読み込みで消える | `DATABASE_URL` が SQLite のまま。Neon の値になっているか確認 |
+| ビルドで `Prisma Client` の型エラー | `postinstall` の `prisma generate` が走っていない。Vercel の Install Command が `npm install` になっているか確認 |
+| `db:push` が pgbouncer のエラーで止まる | プール接続を使っている。`DATABASE_URL_UNPOOLED` の値を使う |
+| ログイン後すぐログイン画面に戻る | `SESSION_SECRET` 未設定。追加して Redeploy |
+
+### ローカル開発について
+
+`prisma/schema.prisma` は PostgreSQL 前提になっています。ローカルでも Neon の接続文字列を
+`.env` に入れて動かすのが最も簡単です（本番と別の DB にしたい場合は Neon で **Branch** を切る）。
 
 ---
 

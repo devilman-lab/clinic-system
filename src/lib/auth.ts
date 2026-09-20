@@ -10,8 +10,10 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
 import db from './db';
+import { SESSION_COOKIE } from './session-cookie';
 
-export const SESSION_COOKIE = 'clinic_session';
+export { SESSION_COOKIE };
+
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
 
 export type Role = 'ADMIN' | 'STAFF' | 'DOCTOR';

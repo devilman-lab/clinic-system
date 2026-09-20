@@ -31,7 +31,10 @@ export default async function BookingsPage({
     ...(status ? { status } : { status: { not: 'CANCELLED' } }),
     ...(keyword
       ? {
-          OR: [{ patientName: { contains: keyword } }, { patientId: { contains: keyword } }],
+          OR: [
+            { patientName: { contains: keyword, mode: 'insensitive' } },
+            { patientId: { contains: keyword, mode: 'insensitive' } },
+          ],
         }
       : {}),
   };

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SESSION_COOKIE } from './lib/auth';
+import { SESSION_COOKIE } from './lib/session-cookie';
 
 /**
  * 未ログインのまま業務画面へ来た場合にログイン画面へ戻すための一次ゲート。
