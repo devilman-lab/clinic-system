@@ -14,7 +14,8 @@
     "db:reset": "prisma db push --force-reset --skip-generate && npm run db:seed",
     "verify": "ts-node -P tsconfig.scripts.json scripts/verify-engine.ts",
     "smoke": "ts-node -P tsconfig.scripts.json scripts/smoke.ts",
-    "e2e": "playwright test",
+    "e2e": "playwright test booking-flow",
+    "audit": "playwright test production-audit --project=desktop",
     "postinstall": "prisma generate"
   },
   "dependencies": {

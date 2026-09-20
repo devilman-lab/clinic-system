@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBookingAction, updateBookingAction } from '@/app/actions/bookings';
 import type { Masters } from '@/lib/masters';
@@ -38,6 +38,17 @@ export function BookingModal({
   const [form, setForm] = useState<BookingDraft | null>(draft);
   const [errors, setErrors] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
+  const [saved, setSaved] = useState(false);
+
+  // 保存後は router.refresh() が終わる（pending が false になる）まで閉じない。
+  // 先に閉じると、直後に開いた一覧や詳細が更新前のデータを見せてしまう。
+  // saved のリセットは親が draft を差し替えた描画時に行う（下のブロック）。
+  useEffect(() => {
+    if (saved && !pending) {
+      onSaved?.();
+      onClose();
+    }
+  }, [saved, pending, onSaved, onClose]);
 
   // モーダルを開き直したときに前回の入力が残らないようにする
   const [lastDraft, setLastDraft] = useState(draft);
@@ -45,6 +56,7 @@ export function BookingModal({
     setLastDraft(draft);
     setForm(draft);
     setErrors([]);
+    setSaved(false);
   }
 
   const isEdit = Boolean(form?.id);
@@ -101,8 +113,7 @@ export function BookingModal({
         return;
       }
       router.refresh();
-      onSaved?.();
-      onClose();
+      setSaved(true);
     });
   };
 

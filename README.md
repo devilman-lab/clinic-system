@@ -250,7 +250,14 @@ npm run lint       # ESLint
 npm run build      # 本番ビルド
 ```
 
-`npm run e2e` は初回のみブラウザの取得が必要です。
+デプロイ済みの環境に対しては、仕様書のデモシナリオ 1〜5 を網羅した監査を実行できます
+（本番 DB に書き込みますが、作成したデータは末尾で必ずキャンセル・削除します）。
+
+```bash
+E2E_BASE_URL=https://<デプロイ先ホスト> npm run audit
+```
+
+`npm run e2e` / `npm run audit` は初回のみブラウザの取得が必要です。
 
 ```bash
 npx playwright install chromium webkit
@@ -274,7 +281,7 @@ npx playwright install chromium webkit
 | --- | --- | --- |
 | `DATABASE_URL` | PostgreSQL 接続文字列 | `postgresql://...?sslmode=require` |
 | `SESSION_SECRET` | セッション Cookie の署名鍵 | 32 文字以上のランダム文字列 |
-| `TZ` | 任意。サーバーの時刻帯。未設定なら起動時に `Asia/Tokyo` を既定にする | `Asia/Tokyo` |
+| `CLINIC_TIMEZONE` | 任意。起動時にサーバーの時刻帯をこの値へ固定する（既定 `Asia/Tokyo`） | `Asia/Tokyo` |
 
 `SESSION_SECRET` は必ず環境変数から読み込み、コードには含めていません。
 本番では十分な長さのランダム値を設定してください（例：`openssl rand -base64 32`）。
@@ -331,8 +338,9 @@ Project → **Settings** → **Environment Variables** に以下を追加（Prod
 | --- | --- |
 | `SESSION_SECRET` | `openssl rand -base64 32` などで作った 32 文字以上のランダム文字列 |
 
-時刻帯はアプリが起動時に `Asia/Tokyo` を既定にするため（`src/instrumentation.ts`）、設定不要です。
-`/api/health` の `serverNow` が日本時間になっていることで確認できます。
+時刻帯はアプリが起動時に `Asia/Tokyo` へ固定するため（`src/instrumentation.ts`）、設定不要です。
+Vercel は `TZ=":UTC"` を明示的に渡してくるので「未設定なら」ではなく常に上書きしています。
+`/api/health` の `timezone` が `Asia/Tokyo`、`serverNow` が日本時間になっていることで確認できます。
 
 **Neon 連携が作る変数名を確認してください。** Storage → Neon → 対象プロジェクトの設定にある
 「Custom Environment Variable Prefix」が `DATABASE` なら `DATABASE_URL` が作られます。
@@ -371,7 +379,7 @@ Project → **Settings** → **Environment Variables** に以下を追加（Prod
 | 症状 | 原因と対処 |
 | --- | --- |
 | ログインで「DATABASE_URL resolved to an empty string」 | 変数名の不一致か、環境変数追加後に再デプロイしていない。Environment Variables で `DATABASE_URL` の値を確認し、Redeploy |
-| ダッシュボードが「昨日」を表示する | `/api/health` の `serverNow` を確認。ずれていれば環境変数 `TZ=Asia/Tokyo` を明示して Redeploy |
+| ダッシュボードが「昨日」を表示する | `/api/health` の `timezone` が `Asia/Tokyo` でなければ、`src/instrumentation.ts` が動いていない。`CLINIC_TIMEZONE=Asia/Tokyo` を環境変数に明示して Redeploy |
 | 予約しても再読み込みで消える | `DATABASE_URL` が Neon の値になっているか確認 |
 | ビルドで `Prisma Client` の型エラー | `postinstall` の `prisma generate` が走っていない。Vercel の Install Command が `npm install` になっているか確認 |
 | `db:push` が pgbouncer のエラーで止まる | プール接続を使っている。`DATABASE_URL_UNPOOLED` の値を使う |

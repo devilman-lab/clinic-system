@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { cancelBookingAction } from '@/app/actions/bookings';
 import { palette } from '@/lib/colors';
@@ -40,6 +40,21 @@ export function BookingDetailModal({
   const [errors, setErrors] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [cancelled, setCancelled] = useState(false);
+
+  // 一覧の再取得が終わってから閉じる（BookingModal と同じ理由）
+  useEffect(() => {
+    if (cancelled && !pending) onClose();
+  }, [cancelled, pending, onClose]);
+
+  // 別の予約を開いたとき、前回の確認状態やエラーを引き継がない
+  const [lastBooking, setLastBooking] = useState(booking);
+  if (booking !== lastBooking) {
+    setLastBooking(booking);
+    setCancelled(false);
+    setConfirming(false);
+    setErrors([]);
+  }
 
   if (!booking) return null;
 
@@ -55,7 +70,7 @@ export function BookingDetailModal({
         return;
       }
       router.refresh();
-      onClose();
+      setCancelled(true);
     });
   };
 
