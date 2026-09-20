@@ -14,6 +14,8 @@ interface NavItem {
   icon: IconName;
   roles?: Role[];
   exact?: boolean;
+  /** 業務画面の外にあるページ。別タブで開き、現在の作業を失わせない。 */
+  external?: boolean;
 }
 
 interface NavGroup {
@@ -43,7 +45,7 @@ const NAV: NavGroup[] = [
   {
     title: 'その他',
     items: [
-      { href: '/schedule', label: '公開予約表', icon: 'eye' },
+      { href: '/schedule', label: '公開予約表', icon: 'eye', external: true },
       { href: '/admin/settings', label: '設定', icon: 'settings', roles: ['ADMIN'] },
     ],
   },
@@ -117,6 +119,8 @@ export function AppShell({
                       href={item.href}
                       onClick={() => setDrawerOpen(false)}
                       aria-current={active ? 'page' : undefined}
+                      target={item.external ? '_blank' : undefined}
+                      rel={item.external ? 'noopener' : undefined}
                       className={cn(
                         'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
                         active
@@ -126,6 +130,9 @@ export function AppShell({
                     >
                       <Icon className="h-[18px] w-[18px] shrink-0" />
                       <span className="truncate">{item.label}</span>
+                      {item.external && (
+                        <span className="ml-auto text-[10px] text-brand-300/80">別タブ</span>
+                      )}
                     </Link>
                   </li>
                 );

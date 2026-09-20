@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getSession } from '@/lib/auth';
 import { getCalendarData } from '@/lib/calendar';
 import { getAllConfig } from '@/lib/config';
 import { dateKey, startOfDay } from '@/lib/time';
@@ -31,11 +32,28 @@ export default async function PublicSchedulePage({
 }: {
   searchParams: Promise<{ month?: string }>;
 }) {
-  const config = await getAllConfig();
+  const [config, session] = await Promise.all([getAllConfig(), getSession()]);
+
+  // 院内スタッフが「患者にどう見えるか」を確認しに来た場合だけ、戻り先を出す
+  const staffBar = session && (
+    <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm">
+      <span className="text-brand-900">
+        <span className="font-semibold">{session.displayName}</span>
+        としてログイン中。この画面は患者向けの表示です（患者名・IDは出ません）。
+      </span>
+      <Link
+        href="/"
+        className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        管理画面へ戻る
+      </Link>
+    </div>
+  );
 
   if (config.public_schedule_enabled === 'false') {
     return (
       <main className="mx-auto max-w-2xl px-5 py-16 text-center">
+        {staffBar}
         <h1 className="text-lg font-semibold text-slate-900">手術予定表</h1>
         <p className="mt-3 text-sm text-slate-600">
           現在、予定表は公開されていません。お手数ですが受付までお問い合わせください。
@@ -62,6 +80,7 @@ export default async function PublicSchedulePage({
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
+      {staffBar}
       <header className="mb-6">
         <p className="text-sm text-slate-500">{clinicName}</p>
         <h1 className="mt-1 text-2xl font-semibold text-slate-900">手術予定表</h1>
@@ -157,12 +176,14 @@ export default async function PublicSchedulePage({
           この予定表には患者さまの氏名・ID などの個人情報は一切含まれません。
           内容は変更になる場合があります。最新の予定は受付までご確認ください。
         </p>
-        <Link
-          href="/login"
-          className="no-print mt-4 inline-block text-xs text-slate-400 underline-offset-4 hover:underline"
-        >
-          院内スタッフの方はこちら
-        </Link>
+        {!session && (
+          <Link
+            href="/login"
+            className="no-print mt-4 inline-block text-xs text-slate-400 underline-offset-4 hover:underline"
+          >
+            院内スタッフの方はこちら
+          </Link>
+        )}
       </footer>
     </main>
   );
